@@ -2,71 +2,76 @@ name: nightly-vector-update
 
 on:
   schedule:
-    - cron: '0 17 * * *'  # 每天 UTC 17:00 → 香港時間 01:00
-  # 如果需要手動觸發，也可以同時加：
-  workflow_dispatch:
+    - cron: '0 17 * * *'    # 每天 UTC 17:00 → 香港時間 01:00
+  workflow_dispatch:       # 允許手動觸發
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-    - name: Install dependencies
-      run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Prepare GCP SA key
-      run: echo "${{ secrets.GCP_SA_KEY }}" > gcp-sa.json
+      - name: Prepare GCP SA key
+        run: |
+          # 使用 Here‐Document 確保 JSON 原樣輸出，避免換行或引號被吃掉
+          cat << 'EOF' > gcp-sa.json
+          ${{ secrets.GCP_SA_KEY }}
+          EOF
 
-    - name: List Drive images
-      env:
-        DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
-      run: |
-        python vector.py \
-          --sa gcp-sa.json \
-          --folder $DRIVE_FOLDER_ID \
-          --output drive_images.json
+      - name: List Drive images
+        env:
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+        run: |
+          python vector.py \
+            --sa gcp-sa.json \
+            --folder $DRIVE_FOLDER_ID \
+            --output drive_images.json
 
-    - name: Build FAISS index
-      run: |
-        python vector2.py \
-          --input drive_images.json \
-          --out-index image_index.faiss \
-          --out-meta image_metadata.json
+      - name: Build FAISS index
+        run: |
+          python vector2.py \
+            --input drive_images.json \
+            --out-index image_index.faiss \
+            --out-meta image_metadata.json
 
-    - name: Create GitHub Release
-      id: create_release
-      uses: actions/create-release@v1
-      with:
-        tag_name: nightly-${{ github.run_id }}
-        release_name: Nightly build #${{ github.run_number }}
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: nightly-${{ github.run_id }}
+          release_name: Nightly build #${{ github.run_number }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload FAISS asset
-      uses: actions/upload-release-asset@v1
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: image_index.faiss
-        asset_name: image_index.faiss
-        asset_content_type: application/octet-stream
+      - name: Upload FAISS asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: image_index.faiss
+          asset_name: image_index.faiss
+          asset_content_type: application/octet-stream
 
-    - name: Upload metadata asset
-      uses: actions/upload-release-asset@v1
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: image_metadata.json
-        asset_name: image_metadata.json
-        asset_content_type: application/json
+      - name: Upload metadata asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: image_metadata.json
+          asset_name: image_metadata.json
+          asset_content_type: application/json
 
-    - name: Cleanup
-      run: rm -f gcp-sa.json
+      - name: Cleanup
+        run: rm -f gcp-sa.json
