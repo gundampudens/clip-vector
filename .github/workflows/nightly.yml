@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 17 * * *'  # 每天 UTC 17:00 → 香港時間 01:00
   # 如果需要手動觸發，也可以同時加：
-  # workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   build-and-release:
