@@ -1,5 +1,9 @@
 name: nightly-vector-update
 
+# 必要的權限設定，讓 GITHUB_TOKEN 可建立 Release 及上傳資產
+permissions:
+  contents: write
+
 on:
   schedule:
     - cron: '0 17 * * *'    # 每天 UTC 17:00 → 香港時間 01:00
