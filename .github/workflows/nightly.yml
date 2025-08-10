@@ -1,26 +1,31 @@
 name: nightly-vector-update
 
-# 必要的權限設定，讓 GITHUB_TOKEN 可建立 Release 及上傳資產
+# 讓 GITHUB_TOKEN 有權限建立 Release、上傳 Asset
 permissions:
   contents: write
 
 on:
   schedule:
-    - cron: '0 17 * * *'    # 每天 UTC 17:00 → 香港時間 01:00
-  workflow_dispatch:       # 允許手動觸發
+    - cron: '0 17 * * *'
+  workflow_dispatch:
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
 
+    # 將 GITHUB_TOKEN 放到 job level env，所有 steps 都能使用
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: Setup Python w/ pip cache
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -29,7 +34,6 @@ jobs:
 
       - name: Prepare GCP SA key
         run: |
-          # 使用 Here‐Document 確保 JSON 原樣輸出，避免換行或引號被吃掉
           cat << 'EOF' > gcp-sa.json
           ${{ secrets.GCP_SA_KEY }}
           EOF
@@ -58,8 +62,6 @@ jobs:
           release_name: Nightly build #${{ github.run_number }}
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload FAISS asset
         uses: actions/upload-release-asset@v1
